@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,6 +10,16 @@ const io = new Server(server, {
         origin: '*',
     },
 });
+
+
+// Serve static files from frontend/dist
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// Fallback to index.html for SPA routing
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
+
 
 const classes = {};
 const userClasses = {}; // Track which classes each user has access to
