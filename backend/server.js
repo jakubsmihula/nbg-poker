@@ -1,7 +1,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-const path = require('path');
+import path from 'path';
 
 const app = express();
 const server = http.createServer(app);
