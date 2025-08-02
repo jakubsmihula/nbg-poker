@@ -4,23 +4,23 @@ import { desktopStyles, darkTheme } from './styles/styles';
 import Sidebar from './components/Sidebar';
 import VotePanel from './components/VotePanel';
 import Statistics from './components/Statistics';
-import ClassManager from './ClassManager';
+import SquadManager from './SquadManager';
 
 export default function App() {
     const [username, setUsername] = useState('');
-    const [className, setClassName] = useState('');
-    const [classId, setClassId] = useState('');
-    const [classDisplayName, setClassDisplayName] = useState('');
+    const [squadName, setSquadName] = useState('');
+    const [squadId, setSquadId] = useState('');
+    const [squadDisplayName, setSquadDisplayName] = useState('');
     const [joined, setJoined] = useState(false);
-    const [classes, setClasses] = useState([]);
+    const [squads, setSquads] = useState([]);
     const [message, setMessage] = useState('');
-    const [forceUpdate, setForceUpdate] = useState(0); // Force re-render when class data changes
+    const [forceUpdate, setForceUpdate] = useState(0); // Force re-render when squad data changes
     
-    // Use ref to maintain ClassManager instance across renders
-    const classManagerRef = useRef(new ClassManager());
-    const classManager = classManagerRef.current;
+    // Use ref to maintain SquadManager instance across renders
+    const squadManagerRef = useRef(new SquadManager());
+    const squadManager = squadManagerRef.current;
     const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
-    const [inviteClassId, setInviteClassId] = useState(null);
+    const [inviteSquadId, setInviteSquadId] = useState(null);
     const [isDarkMode, setIsDarkMode] = useState(() => {
         const saved = localStorage.getItem('darkMode');
         return saved ? JSON.parse(saved) : false;
@@ -48,16 +48,16 @@ export default function App() {
     // Handle URL parameters for invite links
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
-        const classFromUrl = urlParams.get('class');
+        const squadFromUrl = urlParams.get('squad');
         const usernameFromUrl = urlParams.get('username');
         
-        if (classFromUrl) {
-            setInviteClassId(classFromUrl);
+        if (squadFromUrl) {
+            setInviteSquadId(squadFromUrl);
             if (usernameFromUrl) {
                 setUsername(usernameFromUrl);
                 // Auto-join if username is provided
                 setTimeout(() => {
-                    joinClassFromInvite(classFromUrl, usernameFromUrl);
+                    joinSquadFromInvite(squadFromUrl, usernameFromUrl);
                 }, 1000); // Small delay to ensure socket is connected
             } else {
                 setShowUsernamePrompt(true);
@@ -66,70 +66,70 @@ export default function App() {
     }, []);
 
     useEffect(() => {
-        socket.on('userClasses', (userClasses) => {
-            setClasses(userClasses);
+        socket.on('userSquads', (userSquads) => {
+            setSquads(userSquads);
         });
 
-        socket.on('classCreated', (newClassId, className) => {
-            setClassId(newClassId);
-            setClassDisplayName(className);
+        socket.on('squadCreated', (newSquadId, squadName) => {
+            setSquadId(newSquadId);
+            setSquadDisplayName(squadName);
         });
 
         socket.on('joined', () => {
             setJoined(true);
             setToast({
                 type: 'success',
-                message: 'Successfully joined the class!',
+                message: 'Successfully joined the squad!',
                 icon: '✅'
             });
         });
 
-        socket.on('classData', (users) => {
-            classManager.updateUsers(classId, users);
+        socket.on('squadData', (users) => {
+            squadManager.updateUsers(squadId, users);
             setForceUpdate(prev => prev + 1);
         });
 
-        socket.on('voteUpdate', (votesCount, totalUsers, classId) => {
-            classManager.updateVoteCount(classId, votesCount, totalUsers);
+        socket.on('voteUpdate', (votesCount, totalUsers, squadId) => {
+            squadManager.updateVoteCount(squadId, votesCount, totalUsers);
             setMessage(`Votes received: ${votesCount} / ${totalUsers}`);
             setForceUpdate(prev => prev + 1);
         });
 
-        socket.on('revealVotes', (votes, users, statistics, classId) => {
-            console.log('revealVotes event received:', { votes, users, statistics, classId });
-            classManager.updateVotes(classId, votes);
-            classManager.updateUsers(classId, users);
-            classManager.updateStats(classId, statistics);
+        socket.on('revealVotes', (votes, users, statistics, squadId) => {
+            console.log('revealVotes event received:', { votes, users, statistics, squadId });
+            squadManager.updateVotes(squadId, votes);
+            squadManager.updateUsers(squadId, users);
+            squadManager.updateStats(squadId, statistics);
             setMessage('Votes revealed');
             setForceUpdate(prev => prev + 1);
-            console.log('After reveal, class data:', classManager.getClassData(classId));
+            console.log('After reveal, squad data:', squadManager.getSquadData(squadId));
         });
 
-        socket.on('resetVotes', (classId) => {
-            console.log('resetVotes event received with classId:', classId);
-            classManager.resetVotes(classId);
+        socket.on('resetVotes', (squadId) => {
+            console.log('resetVotes event received with squadId:', squadId);
+            squadManager.resetVotes(squadId);
             setMessage('');
             setForceUpdate(prev => prev + 1);
-            console.log('After reset, class data:', classManager.getClassData(classId));
+            console.log('After reset, squad data:', squadManager.getSquadData(squadId));
         });
 
-        socket.on('classRemoved', (removedClassId, className) => {
-            // If the user was in the removed class, leave it
-            if (classId === removedClassId) {
+        socket.on('squadRemoved', (removedSquadId, squadName) => {
+            // If the user was in the removed squad, leave it
+            if (squadId === removedSquadId) {
                 setJoined(false);
-                setClassId('');
-                setClassDisplayName('');
+                setSquadId('');
+                setSquadDisplayName('');
                 setMessage('');
             }
             
-            // Remove the class from ClassManager
-            classManager.removeClass(removedClassId);
+            // Remove the squad from SquadManager
+            squadManager.removeSquad(removedSquadId);
             setForceUpdate(prev => prev + 1);
             
             // Show notification
             setToast({
                 type: 'info',
-                message: `Class "${className}" has been deleted because all users left.`,
+                message: `Squad "${squadName}" has been deleted because all users left.`,
                 icon: '🏠'
             });
         });
@@ -142,88 +142,88 @@ export default function App() {
             });
         });
 
-        // Request user's classes on connection
-        socket.emit('getUserClasses');
+        // Request user's squads on connection
+        socket.emit('getUserSquads');
 
         return () => {
-            socket.off('userClasses');
-            socket.off('classCreated');
+            socket.off('userSquads');
+            socket.off('squadCreated');
             socket.off('joined');
-            socket.off('classData');
+            socket.off('squadData');
             socket.off('voteUpdate');
             socket.off('revealVotes');
             socket.off('resetVotes');
-            socket.off('classRemoved');
+            socket.off('squadRemoved');
             socket.off('error');
         };
-    }, [classId]);
+    }, [squadId]);
 
-    const joinClassFromInvite = (targetClassId, targetUsername) => {
+    const joinSquadFromInvite = (targetSquadId, targetUsername) => {
         if (!targetUsername.trim()) {
             alert('Please enter your name');
             return;
         }
         
-        setClassId(targetClassId);
-        socket.emit('joinClass', targetClassId, targetUsername);
+        setSquadId(targetSquadId);
+        socket.emit('joinSquad', targetSquadId, targetUsername);
         
         // Clear URL parameters after joining
         const url = new URL(window.location);
-        url.searchParams.delete('class');
+        url.searchParams.delete('squad');
         url.searchParams.delete('username');
         window.history.replaceState({}, '', url);
         
         setShowUsernamePrompt(false);
-        setInviteClassId(null);
+        setInviteSquadId(null);
     };
 
-    const createClass = () => {
+    const createSquad = () => {
         if (!username.trim()) {
             alert('Please enter your name');
             return;
         }
-        socket.emit('createClass', className.trim() || null, username);
+        socket.emit('createSquad', squadName.trim() || null, username);
     };
 
-    const joinClass = (targetClassId) => {
+    const joinSquad = (targetSquadId) => {
         if (!username.trim()) {
             setToast({
                 type: 'error',
-                message: 'Please enter your name before joining a class',
+                message: 'Please enter your name before joining a squad',
                 icon: '❌'
             });
             return;
         }
         
-        const targetClass = classes.find(cls => cls.id === targetClassId);
-        if (targetClass) {
-            setClassDisplayName(targetClass.name);
+        const targetSquad = squads.find(squad => squad.id === targetSquadId);
+        if (targetSquad) {
+            setSquadDisplayName(targetSquad.name);
         }
         
-        setClassId(targetClassId);
-        socket.emit('joinClass', targetClassId, username);
+        setSquadId(targetSquadId);
+        socket.emit('joinSquad', targetSquadId, username);
     };
 
     const sendVote = (vote) => {
-        classManager.setMyVote(classId, vote);
+        squadManager.setMyVote(squadId, vote);
         setMessage('Waiting for others...');
-        socket.emit('vote', vote, classId);
+        socket.emit('vote', vote, squadId);
         setForceUpdate(prev => prev + 1);
     };
 
     const revealVotes = () => {
-        console.log('revealVotes called with classId:', classId);
-        socket.emit('revealVotes', classId);
+        console.log('revealVotes called with squadId:', squadId);
+        socket.emit('revealVotes', squadId);
     };
 
     const resetVotes = () => {
-        console.log('resetVotes called with classId:', classId);
-        socket.emit('resetVotes', classId);
+        console.log('resetVotes called with squadId:', squadId);
+        socket.emit('resetVotes', squadId);
     };
 
     const copyLinkToClipboard = () => {
         const url = new URL(window.location);
-        url.searchParams.set('class', classId);
+        url.searchParams.set('squad', squadId);
         navigator.clipboard.writeText(url.toString())
             .then(() => {
                 setToast({
@@ -242,13 +242,13 @@ export default function App() {
             });
     };
 
-    const leaveClass = () => {
-        if (classId) {
-            socket.emit('leaveClass', classId);
+    const leaveSquad = () => {
+        if (squadId) {
+            socket.emit('leaveSquad', squadId);
         }
         setJoined(false);
-        setClassId('');
-        setClassDisplayName('');
+        setSquadId('');
+        setSquadDisplayName('');
         setMessage('');
     };
 
@@ -367,7 +367,7 @@ export default function App() {
                             }}
                             onKeyPress={(e) => {
                                 if (e.key === 'Enter' && username.trim()) {
-                                    joinClassFromInvite(inviteClassId, username);
+                                    joinSquadFromInvite(inviteSquadId, username);
                                 }
                             }}
                         />
@@ -379,7 +379,7 @@ export default function App() {
                                 ...currentStyles.button,
                                 ...currentStyles.buttonPrimary
                             }}
-                            onClick={() => joinClassFromInvite(inviteClassId, username)}
+                            onClick={() => joinSquadFromInvite(inviteSquadId, username)}
                             disabled={!username.trim()}
                         >
                             Join Session
@@ -391,9 +391,9 @@ export default function App() {
                             }}
                             onClick={() => {
                                 setShowUsernamePrompt(false);
-                                setInviteClassId(null);
+                                setInviteSquadId(null);
                                 const url = new URL(window.location);
-                                url.searchParams.delete('class');
+                                url.searchParams.delete('squad');
                                 url.searchParams.delete('username');
                                 window.history.replaceState({}, '', url);
                             }}
@@ -412,14 +412,14 @@ export default function App() {
             <Toast toast={toast} />
             
             <Sidebar 
-                classes={classes}
-                onJoinClass={joinClass}
-                onCreateClass={createClass}
+                squads={squads}
+                onJoinSquad={joinSquad}
+                onCreateSquad={createSquad}
                 username={username}
                 setUsername={setUsername}
-                className={className}
-                setClassName={setClassName}
-                activeClassId={classId}
+                squadName={squadName}
+                setSquadName={setSquadName}
+                activeSquadId={squadId}
                 isDarkMode={isDarkMode}
                 setToast={setToast}
             />
@@ -433,10 +433,10 @@ export default function App() {
                                 Welcome to Poker Planning
                             </h2>
                             <p style={{ fontSize: '16px', marginBottom: '20px', color: isDarkMode ? '#bdc3c7' : '#666' }}>
-                                Create a class or join an existing one to start planning
+                                Create a squad or join an existing one to start planning
                             </p>
                             <p style={{ fontSize: '14px', opacity: 0.7, color: isDarkMode ? '#bdc3c7' : '#666' }}>
-                                Use the sidebar to manage your classes and invite team members
+                                Use the sidebar to manage your squads and invite team members
                             </p>
                         </div>
                     </div>
@@ -465,7 +465,7 @@ export default function App() {
                                     }}></div>
                                 </div>
                                 <h1 style={currentStyles.headerTitle}>
-                                    {classDisplayName}
+                                    {squadDisplayName}
                                 </h1>
                             </div>
                             <div style={currentStyles.headerActions}>
@@ -497,14 +497,14 @@ export default function App() {
                                     📋 Copy Invite Link
                                 </button>
                                 <button 
-                                    onClick={leaveClass}
+                                    onClick={leaveSquad}
                                     style={{
                                         ...currentStyles.button,
                                         ...currentStyles.buttonDanger,
                                         ...currentStyles.buttonSmall
                                     }}
                                 >
-                                    🚪 Leave Class
+                                    🚪 Leave Squad
                                 </button>
                             </div>
                         </div>
@@ -513,14 +513,14 @@ export default function App() {
                             <div style={currentStyles.card}>
                                 <h3 style={currentStyles.sectionTitle}>
                                     👥 Participants ({(() => {
-                                        const classData = classManager.getClassData(classId);
-                                        return classData.totalUsers;
+                                        const squadData = squadManager.getSquadData(squadId);
+                                        return squadData.totalUsers;
                                     })()})
                                 </h3>
                                 <div style={currentStyles.participantList}>
                                     {(() => {
-                                        const classData = classManager.getClassData(classId);
-                                        return Object.values(classData.users).map((user, index) => (
+                                        const squadData = squadManager.getSquadData(squadId);
+                                        return Object.values(squadData.users).map((user, index) => (
                                             <div key={index} style={currentStyles.participantItem}>
                                                 👤 {user}
                                             </div>
@@ -530,27 +530,27 @@ export default function App() {
                             </div>
 
                             {(() => {
-                                const classData = classManager.getClassData(classId);
+                                const squadData = squadManager.getSquadData(squadId);
                                 console.log('VotePanel render:', {
-                                    classId,
-                                    classData,
-                                    myVote: classData.myVote,
-                                    votes: classData.isRevealed ? classData.votes : null,
-                                    voteCount: classData.voteCount,
-                                    totalUsers: classData.totalUsers,
-                                    isRevealed: classData.isRevealed,
-                                    shouldShowRevealButton: classData.voteCount > 0 && !classData.isRevealed
+                                    squadId,
+                                    squadData,
+                                    myVote: squadData.myVote,
+                                    votes: squadData.isRevealed ? squadData.votes : null,
+                                    voteCount: squadData.voteCount,
+                                    totalUsers: squadData.totalUsers,
+                                    isRevealed: squadData.isRevealed,
+                                    shouldShowRevealButton: squadData.voteCount > 0 && !squadData.isRevealed
                                 });
                                 return (
                                     <VotePanel
-                                        myVote={classData.myVote}
+                                        myVote={squadData.myVote}
                                         sendVote={sendVote}
-                                        votes={classData.isRevealed ? classData.votes : null}
+                                        votes={squadData.isRevealed ? squadData.votes : null}
                                         onRevealVotes={revealVotes}
-                                        voteCount={classData.voteCount}
-                                        totalUsers={classData.totalUsers}
+                                        voteCount={squadData.voteCount}
+                                        totalUsers={squadData.totalUsers}
                                         isDarkMode={isDarkMode}
-                                        isRevealed={classData.isRevealed}
+                                        isRevealed={squadData.isRevealed}
                                     />
                                 );
                             })()}
@@ -562,13 +562,13 @@ export default function App() {
                             )}
                             
                             {(() => {
-                                const classData = classManager.getClassData(classId);
-                                return classData.stats ? <Statistics stats={classData.stats} isDarkMode={isDarkMode} /> : null;
+                                const squadData = squadManager.getSquadData(squadId);
+                                return squadData.stats ? <Statistics stats={squadData.stats} isDarkMode={isDarkMode} /> : null;
                             })()}
                             
                             {(() => {
-                                const classData = classManager.getClassData(classId);
-                                if (!classData.isRevealed || !classData.votes || Object.keys(classData.votes).length === 0) {
+                                const squadData = squadManager.getSquadData(squadId);
+                                if (!squadData.isRevealed || !squadData.votes || Object.keys(squadData.votes).length === 0) {
                                     return null;
                                 }
                                 
@@ -576,14 +576,14 @@ export default function App() {
                                     <div style={currentStyles.card}>
                                         <h3 style={currentStyles.sectionTitle}>📋 Vote Results</h3>
                                         <div style={currentStyles.resultsList}>
-                                            {Object.entries(classData.votes).map(([socketId, vote], index) => {
-                                                const username = classData.users[socketId] || 'Unknown User';
+                                            {Object.entries(squadData.votes).map(([socketId, vote], index) => {
+                                                const username = squadData.users[socketId] || 'Unknown User';
                                                 return (
                                                     <div 
                                                         key={socketId} 
                                                         style={{
                                                             ...currentStyles.resultItem,
-                                                            ...(index === Object.entries(classData.votes).length - 1 ? currentStyles.resultItemLast : {})
+                                                            ...(index === Object.entries(squadData.votes).length - 1 ? currentStyles.resultItemLast : {})
                                                         }}
                                                     >
                                                         <span>👤 {username}</span>

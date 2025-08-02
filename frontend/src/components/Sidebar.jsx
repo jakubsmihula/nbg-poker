@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { desktopStyles, darkTheme } from '../styles/styles';
 
 const Sidebar = ({ 
-    classes, 
-    onJoinClass, 
-    onCreateClass, 
+    squads, 
+    onJoinSquad, 
+    onCreateSquad, 
     username, 
     setUsername, 
-    className, 
-    setClassName,
-    activeClassId,
+    squadName, 
+    setSquadName,
+    activeSquadId,
     isDarkMode = false,
     setToast
 }) => {
@@ -18,25 +18,25 @@ const Sidebar = ({
     const [inviteLink, setInviteLink] = useState('');
     const currentStyles = isDarkMode ? darkTheme : desktopStyles;
 
-    const handleCreateClass = () => {
+    const handleCreateSquad = () => {
         if (!username.trim()) {
             setToast({
                 type: 'error',
-                message: 'Please enter your name before creating a class',
+                message: 'Please enter your name before creating a squad',
                 icon: '❌'
             });
             return;
         }
-        onCreateClass();
+        onCreateSquad();
         setIsCreating(false);
-        setClassName('');
+        setSquadName('');
     };
 
     const handleJoinByLink = () => {
         if (!username.trim()) {
             setToast({
                 type: 'error',
-                message: 'Please enter your name before joining a class',
+                message: 'Please enter your name before joining a squad',
                 icon: '❌'
             });
             return;
@@ -52,9 +52,9 @@ const Sidebar = ({
 
         try {
             const url = new URL(inviteLink);
-            const classId = url.searchParams.get('class');
+            const squadId = url.searchParams.get('squad');
             
-            if (!classId) {
+            if (!squadId) {
                 setToast({
                     type: 'error',
                     message: 'Invalid invite link. Please check the link and try again.',
@@ -63,12 +63,12 @@ const Sidebar = ({
                 return;
             }
 
-            onJoinClass(classId);
+            onJoinSquad(squadId);
             setIsJoiningByLink(false);
             setInviteLink('');
             setToast({
                 type: 'success',
-                message: `Joining class ${classId}...`,
+                message: `Joining squad ${squadId}...`,
                 icon: '🚀'
             });
         } catch (error) {
@@ -80,17 +80,17 @@ const Sidebar = ({
         }
     };
 
-    // Extract class ID from invite link for display
-    const getClassIdFromLink = (link) => {
+    // Extract squad ID from invite link for display
+    const getSquadIdFromLink = (link) => {
         try {
             const url = new URL(link);
-            return url.searchParams.get('class');
+            return url.searchParams.get('squad');
         } catch (error) {
             return null;
         }
     };
 
-    const detectedClassId = getClassIdFromLink(inviteLink);
+    const detectedSquadId = getSquadIdFromLink(inviteLink);
 
     return (
         <div style={currentStyles.sidebar}>
@@ -121,9 +121,9 @@ const Sidebar = ({
             </div>
             
             <div style={currentStyles.sidebarContent}>
-                {/* Create Class Form */}
+                {/* Create Squad Form */}
                 <div style={currentStyles.createRoomForm}>
-                    <h3 style={currentStyles.formTitle}>Create New Class</h3>
+                    <h3 style={currentStyles.formTitle}>Create New Squad</h3>
                     
                     <div style={currentStyles.formGroup}>
                         <label style={currentStyles.formLabel}>Your Name</label>
@@ -139,12 +139,12 @@ const Sidebar = ({
                     </div>
                     
                     <div style={currentStyles.formGroup}>
-                        <label style={currentStyles.formLabel}>Class Name (Optional)</label>
+                        <label style={currentStyles.formLabel}>Squad Name (Optional)</label>
                         <input
                             type="text"
-                            placeholder="Enter class name"
-                            value={className}
-                            onChange={(e) => setClassName(e.target.value)}
+                            placeholder="Enter squad name"
+                            value={squadName}
+                            onChange={(e) => setSquadName(e.target.value)}
                             style={currentStyles.sidebarInput}
                             onFocus={(e) => e.target.style.borderColor = '#ff6b35'}
                             onBlur={(e) => e.target.style.borderColor = isDarkMode ? '#505050' : '#4a5f7a'}
@@ -157,10 +157,10 @@ const Sidebar = ({
                             ...currentStyles.buttonPrimary,
                             width: '100%'
                         }}
-                        onClick={handleCreateClass}
+                        onClick={handleCreateSquad}
                         disabled={!username.trim()}
                     >
-                        ➕ Create Class
+                        ➕ Create Squad
                     </button>
                 </div>
 
@@ -197,7 +197,7 @@ const Sidebar = ({
                                         }
                                     }}
                                 />
-                                {detectedClassId && (
+                                {detectedSquadId && (
                                     <div style={{
                                         fontSize: '11px',
                                         color: isDarkMode ? '#90ee90' : '#27ae60',
@@ -207,7 +207,7 @@ const Sidebar = ({
                                         borderRadius: '4px',
                                         border: `1px solid ${isDarkMode ? '#4a7c4a' : '#c3e6cb'}`
                                     }}>
-                                        ✅ Detected Class ID: {detectedClassId}
+                                        ✅ Detected Squad ID: {detectedSquadId}
                                     </div>
                                 )}
                                 {inviteLink.trim() && !username.trim() && (
@@ -220,7 +220,7 @@ const Sidebar = ({
                                         borderRadius: '4px',
                                         border: `1px solid ${isDarkMode ? '#7c4a4a' : '#f5c6cb'}`
                                     }}>
-                                        ⚠️ Please enter your name above to join this class
+                                        ⚠️ Please enter your name above to join this squad
                                     </div>
                                 )}
                             </div>
@@ -236,7 +236,7 @@ const Sidebar = ({
                                     disabled={!username.trim() || !inviteLink.trim()}
                                     title={!username.trim() ? 'Please enter your name first' : !inviteLink.trim() ? 'Please enter an invite link' : ''}
                                 >
-                                    🚀 Join Class
+                                    🚀 Join Squad
                                 </button>
                                 <button
                                     style={{
@@ -256,49 +256,49 @@ const Sidebar = ({
                     )}
                 </div>
 
-                {/* Class List */}
+                {/* Squad List */}
                 <div>
                     <h3 style={{
                         ...currentStyles.formTitle,
                         marginTop: '30px'
                     }}>
-                        Your Classes ({classes.length})
+                        Your Squads ({squads.length})
                     </h3>
                     
-                    {classes.length === 0 ? (
+                    {squads.length === 0 ? (
                         <div style={currentStyles.emptyState}>
                             <div style={currentStyles.emptyStateIcon}>🏠</div>
-                            <p style={{ color: isDarkMode ? '#bdc3c7' : '#666' }}>No classes yet</p>
+                            <p style={{ color: isDarkMode ? '#bdc3c7' : '#666' }}>No squads yet</p>
                             <p style={{ fontSize: '12px', opacity: 0.7, color: isDarkMode ? '#bdc3c7' : '#666' }}>
-                                Create a class or join one to get started
+                                Create a squad or join one to get started
                             </p>
                         </div>
                     ) : (
                         <div>
-                            {classes.map(cls => (
+                            {squads.map(squad => (
                                 <div
-                                    key={cls.id}
+                                    key={squad.id}
                                     style={{
                                         ...currentStyles.roomItem,
-                                        ...(activeClassId === cls.id ? currentStyles.roomItemActive : {})
+                                        ...(activeSquadId === squad.id ? currentStyles.roomItemActive : {})
                                     }}
-                                    onClick={() => onJoinClass(cls.id)}
+                                    onClick={() => onJoinSquad(squad.id)}
                                     onMouseEnter={(e) => {
-                                        if (activeClassId !== cls.id) {
+                                        if (activeSquadId !== squad.id) {
                                             e.target.style.background = '#ff6b35';
                                             e.target.style.transform = 'translateY(-1px)';
                                         }
                                     }}
                                     onMouseLeave={(e) => {
-                                        if (activeClassId !== cls.id) {
+                                        if (activeSquadId !== squad.id) {
                                             e.target.style.background = isDarkMode ? '#404040' : '#404040';
                                             e.target.style.transform = 'none';
                                         }
                                     }}
                                 >
                                     <div style={currentStyles.roomName}>
-                                        {cls.name}
-                                        {cls.isOwner && (
+                                        {squad.name}
+                                        {squad.isOwner && (
                                             <span style={{
                                                 ...currentStyles.roomBadge,
                                                 background: '#e62222',
@@ -309,9 +309,9 @@ const Sidebar = ({
                                         )}
                                     </div>
                                     <div style={currentStyles.roomInfo}>
-                                        <span>{cls.userCount} {cls.userCount === 1 ? 'user' : 'users'}</span>
+                                        <span>{squad.userCount} {squad.userCount === 1 ? 'user' : 'users'}</span>
                                         <span style={{ fontSize: '10px', opacity: 0.7 }}>
-                                            ID: {cls.id}
+                                            ID: {squad.id}
                                         </span>
                                     </div>
                                 </div>

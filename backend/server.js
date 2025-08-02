@@ -26,9 +26,9 @@ app.get('*', (req, res) => {
 });
 
 
-const classes = {};
-const userClasses = {}; // Track which classes each user has access to
-let classCounter = 1;
+const squads = {};
+const userSquads = {}; // Track which squads each user has access to
+let squadCounter = 1;
 
 // Helper function to calculate statistics
 const calculateStats = (votes, users) => {
@@ -55,27 +55,27 @@ const calculateStats = (votes, users) => {
     };
 };
 
-// Helper function to notify users about class removal
-const notifyClassRemoval = (classId, className) => {
-    // Find all users who had access to this class
-    for (const userId in userClasses) {
-        if (userClasses[userId] && userClasses[userId].includes(classId)) {
+// Helper function to notify users about squad removal
+const notifySquadRemoval = (squadId, squadName) => {
+    // Find all users who had access to this squad
+    for (const userId in userSquads) {
+        if (userSquads[userId] && userSquads[userId].includes(squadId)) {
             const userSocket = io.sockets.sockets.get(userId);
             if (userSocket) {
-                // Remove the class from user's accessible classes
-                userClasses[userId] = userClasses[userId].filter(id => id !== classId);
+                // Remove the squad from user's accessible squads
+                userSquads[userId] = userSquads[userId].filter(id => id !== squadId);
                 
-                // Send classRemoved event
-                userSocket.emit('classRemoved', classId, className);
+                // Send squadRemoved event
+                userSocket.emit('squadRemoved', squadId, squadName);
                 
-                // Update user's class list (only include classes that still exist)
-                const userAccessibleClasses = userClasses[userId].map(classId => ({
-                    id: classId,
-                    name: classes[classId]?.name || 'Unknown Class',
-                    userCount: Object.keys(classes[classId]?.users || {}).length,
-                    isOwner: classes[classId]?.createdBy === userId
-                })).filter(cls => classes[cls.id]); // Only include classes that still exist in the classes object
-                userSocket.emit('userClasses', userAccessibleClasses);
+                // Update user's squad list (only include squads that still exist)
+                const userAccessibleSquads = userSquads[userId].map(squadId => ({
+                    id: squadId,
+                    name: squads[squadId]?.name || 'Unknown Squad',
+                    userCount: Object.keys(squads[squadId]?.users || {}).length,
+                    isOwner: squads[squadId]?.createdBy === userId
+                })).filter(squad => squads[squad.id]); // Only include squads that still exist in the squads object
+                userSocket.emit('userSquads', userAccessibleSquads);
             }
         }
     }
@@ -84,213 +84,213 @@ const notifyClassRemoval = (classId, className) => {
 io.on('connection', (socket) => {
     console.log('user connected:', socket.id);
 
-    // Send user's accessible classes
-    const sendUserClasses = (userId) => {
-        const userAccessibleClasses = userClasses[userId] || [];
-        const classDetails = userAccessibleClasses.map(classId => ({
-            id: classId,
-            name: classes[classId]?.name || 'Unknown Class',
-            userCount: Object.keys(classes[classId]?.users || {}).length,
-            isOwner: classes[classId]?.createdBy === userId
+    // Send user's accessible squads
+    const sendUserSquads = (userId) => {
+        const userAccessibleSquads = userSquads[userId] || [];
+        const squadDetails = userAccessibleSquads.map(squadId => ({
+            id: squadId,
+            name: squads[squadId]?.name || 'Unknown Squad',
+            userCount: Object.keys(squads[squadId]?.users || {}).length,
+            isOwner: squads[squadId]?.createdBy === userId
         }));
-        socket.emit('userClasses', classDetails);
+        socket.emit('userSquads', squadDetails);
     };
 
-    socket.on('createClass', (className, username) => {
-        const classId = generateClassId();
-        const finalClassName = className || `Class ${classCounter++}`;
+    socket.on('createSquad', (squadName, username) => {
+        const squadId = generateSquadId();
+        const finalSquadName = squadName || `Squad ${squadCounter++}`;
         
-        classes[classId] = {
-            name: finalClassName,
+        squads[squadId] = {
+            name: finalSquadName,
             users: {},
             votes: {},
             createdBy: socket.id
         };
 
-        classes[classId].users[socket.id] = username;
-        socket.join(classId);
+        squads[squadId].users[socket.id] = username;
+        socket.join(squadId);
 
-        // Add class to user's accessible classes
-        if (!userClasses[socket.id]) {
-            userClasses[socket.id] = [];
+        // Add squad to user's accessible squads
+        if (!userSquads[socket.id]) {
+            userSquads[socket.id] = [];
         }
-        userClasses[socket.id].push(classId);
+        userSquads[socket.id].push(squadId);
 
-        socket.emit('classCreated', classId, finalClassName);
+        socket.emit('squadCreated', squadId, finalSquadName);
         socket.emit('joined');
-        sendUserClasses(socket.id);
+        sendUserSquads(socket.id);
 
-        io.to(classId).emit('classData', classes[classId].users);
+        io.to(squadId).emit('squadData', squads[squadId].users);
     });
 
-    socket.on('joinClass', (classId, username) => {
-        if (!classes[classId]) {
-            socket.emit('error', 'Class not found');
+    socket.on('joinSquad', (squadId, username) => {
+        if (!squads[squadId]) {
+            socket.emit('error', 'Squad not found');
             return;
         }
 
-        classes[classId].users[socket.id] = username;
-        socket.join(classId);
+        squads[squadId].users[socket.id] = username;
+        socket.join(squadId);
 
-        // Add class to user's accessible classes if not already there
-        if (!userClasses[socket.id]) {
-            userClasses[socket.id] = [];
+        // Add squad to user's accessible squads if not already there
+        if (!userSquads[socket.id]) {
+            userSquads[socket.id] = [];
         }
-        if (!userClasses[socket.id].includes(classId)) {
-            userClasses[socket.id].push(classId);
+        if (!userSquads[socket.id].includes(squadId)) {
+            userSquads[socket.id].push(squadId);
         }
 
         socket.emit('joined');
-        sendUserClasses(socket.id);
-        io.to(classId).emit('classData', classes[classId].users);
+        sendUserSquads(socket.id);
+        io.to(squadId).emit('squadData', squads[squadId].users);
     });
 
-    socket.on('vote', (vote, classId) => {
-        if (!classId || !classes[classId]) return;
+    socket.on('vote', (vote, squadId) => {
+        if (!squadId || !squads[squadId]) return;
 
-        classes[classId].votes[socket.id] = vote;
+        squads[squadId].votes[socket.id] = vote;
 
-        const votesCount = Object.keys(classes[classId].votes).length;
-        const totalUsers = Object.keys(classes[classId].users).length;
+        const votesCount = Object.keys(squads[squadId].votes).length;
+        const totalUsers = Object.keys(squads[squadId].users).length;
 
-        io.to(classId).emit('voteUpdate', votesCount, totalUsers, classId);
+        io.to(squadId).emit('voteUpdate', votesCount, totalUsers, squadId);
     });
 
-    socket.on('revealVotes', (classId) => {
-        console.log('revealVotes event received for classId:', classId);
-        if (!classId || !classes[classId]) {
-            console.log('Class not found or invalid classId');
+    socket.on('revealVotes', (squadId) => {
+        console.log('revealVotes event received for squadId:', squadId);
+        if (!squadId || !squads[squadId]) {
+            console.log('Squad not found or invalid squadId');
             return;
         }
 
-        const stats = calculateStats(classes[classId].votes, classes[classId].users);
+        const stats = calculateStats(squads[squadId].votes, squads[squadId].users);
         console.log('Emitting revealVotes with data:', {
-            votes: classes[classId].votes,
-            users: classes[classId].users,
+            votes: squads[squadId].votes,
+            users: squads[squadId].users,
             stats,
-            classId
+            squadId
         });
-        io.to(classId).emit('revealVotes', classes[classId].votes, classes[classId].users, stats, classId);
+        io.to(squadId).emit('revealVotes', squads[squadId].votes, squads[squadId].users, stats, squadId);
     });
 
-    socket.on('resetVotes', (classId) => {
-        if (!classId || !classes[classId]) return;
+    socket.on('resetVotes', (squadId) => {
+        if (!squadId || !squads[squadId]) return;
 
-        classes[classId].votes = {};
-        io.to(classId).emit('resetVotes', classId);
+        squads[squadId].votes = {};
+        io.to(squadId).emit('resetVotes', squadId);
     });
 
-    socket.on('getUserClasses', () => {
-        sendUserClasses(socket.id);
+    socket.on('getUserSquads', () => {
+        sendUserSquads(socket.id);
     });
 
-    socket.on('leaveClass', (targetClassId) => {
-        if (!classes[targetClassId] || !classes[targetClassId].users[socket.id]) {
-            return; // User is not in this class
+    socket.on('leaveSquad', (targetSquadId) => {
+        if (!squads[targetSquadId] || !squads[targetSquadId].users[socket.id]) {
+            return; // User is not in this squad
         }
 
-        const wasOwner = classes[targetClassId].createdBy === socket.id;
-        const className = classes[targetClassId].name;
+        const wasOwner = squads[targetSquadId].createdBy === socket.id;
+        const squadName = squads[targetSquadId].name;
         
-        // Remove user from the specific class
-        delete classes[targetClassId].users[socket.id];
-        delete classes[targetClassId].votes[socket.id];
-        socket.leave(targetClassId);
+        // Remove user from the specific squad
+        delete squads[targetSquadId].users[socket.id];
+        delete squads[targetSquadId].votes[socket.id];
+        socket.leave(targetSquadId);
         
-        // Remove class from user's accessible classes FIRST
-        if (userClasses[socket.id]) {
-            userClasses[socket.id] = userClasses[socket.id].filter(id => id !== targetClassId);
+        // Remove squad from user's accessible squads FIRST
+        if (userSquads[socket.id]) {
+            userSquads[socket.id] = userSquads[socket.id].filter(id => id !== targetSquadId);
         }
 
-        // If class is empty, delete it and notify all users
-        if (Object.keys(classes[targetClassId].users).length === 0) {
-            delete classes[targetClassId];
-            notifyClassRemoval(targetClassId, className);
+        // If squad is empty, delete it and notify all users
+        if (Object.keys(squads[targetSquadId].users).length === 0) {
+            delete squads[targetSquadId];
+            notifySquadRemoval(targetSquadId, squadName);
         } else {
             // If the owner left, transfer ownership to the first remaining user
             if (wasOwner) {
-                const remainingUsers = Object.keys(classes[targetClassId].users);
+                const remainingUsers = Object.keys(squads[targetSquadId].users);
                 if (remainingUsers.length > 0) {
-                    classes[targetClassId].createdBy = remainingUsers[0];
+                    squads[targetSquadId].createdBy = remainingUsers[0];
                 }
             }
-            io.to(targetClassId).emit('classData', classes[targetClassId].users);
+            io.to(targetSquadId).emit('squadData', squads[targetSquadId].users);
 
-            // Update class lists for all users who have access to this class
-            for (const userId in userClasses) {
-                if (userClasses[userId] && userClasses[userId].includes(targetClassId)) {
+            // Update squad lists for all users who have access to this squad
+            for (const userId in userSquads) {
+                if (userSquads[userId] && userSquads[userId].includes(targetSquadId)) {
                     const userSocket = io.sockets.sockets.get(userId);
                     if (userSocket) {
-                        const userAccessibleClasses = userClasses[userId].map(classId => ({
-                            id: classId,
-                            name: classes[classId]?.name || 'Unknown Class',
-                            userCount: Object.keys(classes[classId]?.users || {}).length,
-                            isOwner: classes[classId]?.createdBy === userId
-                        })).filter(cls => classes[cls.id]); // Only include classes that still exist
-                        userSocket.emit('userClasses', userAccessibleClasses);
+                        const userAccessibleSquads = userSquads[userId].map(squadId => ({
+                            id: squadId,
+                            name: squads[squadId]?.name || 'Unknown Squad',
+                            userCount: Object.keys(squads[squadId]?.users || {}).length,
+                            isOwner: squads[squadId]?.createdBy === userId
+                        })).filter(squad => squads[squad.id]); // Only include squads that still exist
+                        userSocket.emit('userSquads', userAccessibleSquads);
                     }
                 }
             }
         }
 
-        // Send updated class list to the user who left
-        sendUserClasses(socket.id);
+        // Send updated squad list to the user who left
+        sendUserSquads(socket.id);
     });
 
         socket.on('disconnect', () => {
-        // Find which class the user was in
-        for (const classId in classes) {
-            if (classes[classId].users[socket.id]) {
-                const wasOwner = classes[classId].createdBy === socket.id;
-                const className = classes[classId].name;
-                delete classes[classId].users[socket.id];
-                delete classes[classId].votes[socket.id];
+        // Find which squad the user was in
+        for (const squadId in squads) {
+            if (squads[squadId].users[socket.id]) {
+                const wasOwner = squads[squadId].createdBy === socket.id;
+                const squadName = squads[squadId].name;
+                delete squads[squadId].users[socket.id];
+                delete squads[squadId].votes[socket.id];
                 
-                // If class is empty, delete it and notify all users
-                if (Object.keys(classes[classId].users).length === 0) {
-                    delete classes[classId];
-                    notifyClassRemoval(classId, className);
+                // If squad is empty, delete it and notify all users
+                if (Object.keys(squads[squadId].users).length === 0) {
+                    delete squads[squadId];
+                    notifySquadRemoval(squadId, squadName);
                 } else {
                     // If the owner left, transfer ownership to the first remaining user
                     if (wasOwner) {
-                        const remainingUsers = Object.keys(classes[classId].users);
+                        const remainingUsers = Object.keys(squads[squadId].users);
                         if (remainingUsers.length > 0) {
-                            classes[classId].createdBy = remainingUsers[0];
+                            squads[squadId].createdBy = remainingUsers[0];
                         }
                     }
-                    io.to(classId).emit('classData', classes[classId].users);
+                    io.to(squadId).emit('squadData', squads[squadId].users);
 
-                // Update class lists for all users who have access to this class
-                for (const userId in userClasses) {
-                    if (userClasses[userId] && userClasses[userId].includes(classId)) {
+                // Update squad lists for all users who have access to this squad
+                for (const userId in userSquads) {
+                    if (userSquads[userId] && userSquads[userId].includes(squadId)) {
                         const userSocket = io.sockets.sockets.get(userId);
                         if (userSocket) {
-                            const userAccessibleClasses = userClasses[userId].map(classId => ({
-                                id: classId,
-                                name: classes[classId]?.name || 'Unknown Class',
-                                userCount: Object.keys(classes[classId]?.users || {}).length,
-                                isOwner: classes[classId]?.createdBy === userId
-                            })).filter(cls => classes[cls.id]); // Only include classes that still exist
-                            userSocket.emit('userClasses', userAccessibleClasses);
+                            const userAccessibleSquads = userSquads[userId].map(squadId => ({
+                                id: squadId,
+                                name: squads[squadId]?.name || 'Unknown Squad',
+                                userCount: Object.keys(squads[squadId]?.users || {}).length,
+                                isOwner: squads[squadId]?.createdBy === userId
+                            })).filter(squad => squads[squad.id]); // Only include squads that still exist
+                            userSocket.emit('userSquads', userAccessibleSquads);
                         }
                     }
                 }
                 }
 
-                // Remove class from user's accessible classes
-                if (userClasses[socket.id]) {
-                    userClasses[socket.id] = userClasses[socket.id].filter(id => id !== classId);
+                // Remove squad from user's accessible squads
+                if (userSquads[socket.id]) {
+                    userSquads[socket.id] = userSquads[socket.id].filter(id => id !== squadId);
                 }
                 break;
             }
         }
         
-        // Clean up user's class access
-        delete userClasses[socket.id];
+        // Clean up user's squad access
+        delete userSquads[socket.id];
     });
 });
 
-function generateClassId() {
+function generateSquadId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
